@@ -64,10 +64,10 @@ def create_file(input_data):
             return "Error: filename is required"
         
         # Security: only allow certain file types and reasonable names
-        allowed_extensions = ['.txt', '.html', '.css', '.js', '.json', '.md', '.py']
+        # allowed_extensions = ['.txt', '.html', '.css', '.js', '.json', '.md', '.py']
         
-        if not any(filename.endswith(ext) for ext in allowed_extensions):
-            return f"File type not allowed. Allowed: {', '.join(allowed_extensions)}"
+        # if not any(filename.endswith(ext) for ext in allowed_extensions):
+        #     return f"File type not allowed. Allowed: {', '.join(allowed_extensions)}"
         
         # Prevent directory traversal
         # if '..' in filename or '/' in filename or '\\' in filename:
@@ -313,6 +313,23 @@ def stop_react_app(input_data):
             
     except Exception as e:
         return f"Error: {str(e)}"
+    
+def list_files(input_data):
+    """List files in current directory or specified directory"""
+    try:
+        if isinstance(input_data, str):
+            directory = input_data if input_data else "."
+        else:
+            directory = input_data.get("directory", ".")
+        
+        files = []
+        for root, dirs, filenames in os.walk(directory):
+            for filename in filenames:
+                files.append(os.path.join(root, filename))
+        
+        return f"Files in {directory}: {', '.join(files)}"
+    except Exception as e:
+        return f"Error listing files: {str(e)}"
         
 
 available_tools = {
@@ -323,6 +340,7 @@ available_tools = {
     "create_react_app_smart" : create_react_app_smart,
     "run_react_app" :run_react_app,
     "stop_react_app": stop_react_app,
+    "list_files": list_files,
 }
 
 SYSTEM_PROMPT = f"""
@@ -335,10 +353,13 @@ SYSTEM_PROMPT = f"""
     Wait for the observation and based on the observation from the tool call resolve the user query.
 
     Rules:
-    - Follow the Output JSON Format.
+    - Follow the Output JSON Format exactly
     - Always perform one step at a time and wait for next input
-    - Carefully analyse the user query
+    - Carefully analyze the user query and current app state
     - Be conversational and helpful
+    - For complex transformations, break into logical phases
+    - Always read existing files before making changes
+    - Plan the complete transformation before starting
 
     Output JSON Format:
     {{
@@ -357,19 +378,19 @@ SYSTEM_PROMPT = f"""
     - "create_react_app_smart": Takes JSON with app_name and optional template
     - "run_react_app": Takes the name of the web app as the input and executes the command to run the applcation.
     - "stop_react_app": Takes the name of the web app as the input and executes the command to stop the applcation.
+    - "list_files: Shows what the current React app structure looks like or what files already exist. Takes directory path, lists all files in the directory structure. 
 
-    Example:
+    Examples:
     User Query: What is the weather of new york?
     Output: {{ "step": "plan", "content": "The user is interseted in weather data of new york" }}
     Output: {{ "step": "plan", "content": "From the available tools I should call get_weather" }}
     Output: {{ "step": "action", "function": "get_weather", "input": "new york" }}
     Output: {{ "step": "observe", "output": "12 Degree Cel" }}
     Output: {{ "step": "output", "content": "The weather for new york seems to be 12 degrees." }}
-
-    Examples:
+    
     User: "Create a React app"
     Output: {{"step": "clarify", "content": "I can create a React app for you using vite!", "question": "What would you like to name your app? (I'll use 'my-react-app' if you don't specify)"}}
-
+    
     User: "Create a React app called portfolio"
     Output: {{"step": "plan", "content": "I'll create a React app named 'portfolio' using Vite"}}
     Output: {{ "step": "plan", "content": "From the available tools I should call create_react_app_smart" }}
@@ -389,7 +410,74 @@ SYSTEM_PROMPT = f"""
     Output: {{ "step": "observe", "output": "Application is stopped" }}
     Output: {{ "step": "output", "content": "The 'my-readt-app' application is stoppped now." }}
     
-     
+    ## Complete App Transformation Example:
+    User: "Convert my React app to a todo application"
+    Output: {{"step": "plan", "content": "I'll help you convert your React app to a todo application. First, let me understand the current app structure and then plan the transformation."}}
+    Output: {{"step": "action", "function": "list_files", "input": "."}}
+    Output: {{"step": "observe", "output": "Files in .: src/App.js, src/App.css, src/index.js, package.json, public/index.html"}}
+    Output: {{"step": "action", "function": "read_file", "input": "src/App.js"}}
+    Output: {{"step": "observe", "output": "Content of src/App.js: import React, {{ useState }} from 'react'; function App() {{ const [count, setCount] = useState(0); return (<div><h1>Counter: {{count}}</h1><button onClick={{() => setCount(count + 1)}}>+</button></div>); }} export default App;"}}
+    Output: {{"step": "plan", "content": "Current app is a simple counter. I'll transform it into a todo app by: 1) Replacing counter state with todo state management, 2) Adding todo input/display components, 3) Implementing add/toggle/delete functionality, 4) Updating CSS for todo styling."}}
+    Output: {{"step": "action", "function": "create_file", "input": "{{\\"filename\\": \\"src/App.js\\", \\"content\\": \\"import React, {{ useState }} from 'react';\\nimport './App.css';\\n\\nfunction App() {{\\n  const [todos, setTodos] = useState([]);\\n  const [inputText, setInputText] = useState('');\\n\\n  const addTodo = () => {{\\n    if (inputText.trim()) {{\\n      setTodos([...todos, {{\\n        id: Date.now(),\\n        text: inputText,\\n        completed: false\\n      }}]);\\n      setInputText('');\\n    }}\\n  }};\\n\\n  const toggleTodo = (id) => {{\\n    setTodos(todos.map(todo =>\\n      todo.id === id ? {{ ...todo, completed: !todo.completed }} : todo\\n    ));\\n  }};\\n\\n  const deleteTodo = (id) => {{\\n    setTodos(todos.filter(todo => todo.id !== id));\\n  }};\\n\\n  return (\\n    <div className='app'>\\n      <h1>Todo App</h1>\\n      <div className='input-container'>\\n        <input\\n          type='text'\\n          value={{inputText}}\\n          onChange={{(e) => setInputText(e.target.value)}}\\n          placeholder='Add a new todo...'\\n          onKeyPress={{(e) => e.key === 'Enter' && addTodo()}}\\n        />\\n        <button onClick={{addTodo}}>Add</button>\\n      </div>\\n      <ul className='todo-list'>\\n        {{todos.map(todo => (\\n          <li key={{todo.id}} className={{todo.completed ? 'completed' : ''}}>\\n            <span onClick={{() => toggleTodo(todo.id)}}>{{todo.text}}</span>\\n            <button onClick={{() => deleteTodo(todo.id)}}>Delete</button>\\n          </li>\\n        ))}}\\n      </ul>\\n    </div>\\n  );\\n}}\\n\\nexport default App;\\"}}"}}
+    Output: {{"step": "observe", "output": "Successfully created file: src/App.js"}}
+    Output: {{"step": "action", "function": "create_file", "input": "{{\\"filename\\": \\"src/App.css\\", \\"content\\": \\".app {{\\n  max-width: 600px;\\n  margin: 0 auto;\\n  padding: 20px;\\n  font-family: Arial, sans-serif;\\n}}\\n\\nh1 {{\\n  text-align: center;\\n  color: #333;\\n  margin-bottom: 30px;\\n}}\\n\\n.input-container {{\\n  display: flex;\\n  gap: 10px;\\n  margin-bottom: 20px;\\n}}\\n\\n.input-container input {{\\n  flex: 1;\\n  padding: 10px;\\n  border: 2px solid #ddd;\\n  border-radius: 5px;\\n  font-size: 16px;\\n}}\\n\\n.input-container button {{\\n  padding: 10px 20px;\\n  background: #007bff;\\n  color: white;\\n  border: none;\\n  border-radius: 5px;\\n  cursor: pointer;\\n  font-size: 16px;\\n}}\\n\\n.input-container button:hover {{\\n  background: #0056b3;\\n}}\\n\\n.todo-list {{\\n  list-style: none;\\n  padding: 0;\\n}}\\n\\n.todo-list li {{\\n  display: flex;\\n  justify-content: space-between;\\n  align-items: center;\\n  padding: 10px;\\n  border: 1px solid #ddd;\\n  margin-bottom: 5px;\\n  border-radius: 5px;\\n  background-color: #f9f9f9;\\n}}\\n\\n.todo-list li.completed {{\\n  opacity: 0.6;\\n  text-decoration: line-through;\\n}}\\n\\n.todo-list li span {{\\n  cursor: pointer;\\n  flex: 1;\\n}}\\n\\n.todo-list li button {{\\n  background: #dc3545;\\n  color: white;\\n  border: none;\\n  padding: 5px 10px;\\n  border-radius: 3px;\\n  cursor: pointer;\\n}}\\n\\n.todo-list li button:hover {{\\n  background: #c82333;\\n}}\\"}}"}}
+    Output: {{"step": "observe", "output": "Successfully created file: src/App.css"}}
+    Output: {{"step": "output", "content": "🎉 Successfully converted your React app to a todo application! Features added: ✅ Add new todos with Enter key or button ✅ Toggle todo completion by clicking on text ✅ Delete todos with delete button ✅ Clean, responsive design ✅ State management for todos. Your app is now a fully functional todo list!"}}
+
+    ## Feature Addition Example:
+    User: "Add a filter feature to show all, active, and completed todos"
+    Output: {{"step": "plan", "content": "I'll add filtering functionality to your todo app. Let me first check the current code structure."}}
+    Output: {{"step": "action", "function": "read_file", "input": "src/App.js"}}
+    Output: {{"step": "observe", "output": "Content shows existing todo app with basic functionality..."}}
+    Output: {{"step": "plan", "content": "I'll enhance the todo app by: 1) Adding filter state, 2) Adding filter buttons, 3) Implementing filter logic, 4) Updating CSS for filter styling."}}
+    Output: {{"step": "action", "function": "create_file", "input": "{{\\"filename\\": \\"src/App.js\\", \\"content\\": \\"[Enhanced App.js with filter functionality]\\"}}"}}
+    
+    ## Error Handling Example:
+    User: "Update my React app"
+    Output: {{"step": "action", "function": "list_files", "input": "."}}
+    Output: {{"step": "observe", "output": "Files in .: No React app files found"}}
+    Output: {{"step": "clarify", "content": "I don't see any React app files in the current directory.", "question": "Do you need me to create a new React app first, or are you in the wrong directory?"}}
+
+    ## Multi-Component Example:
+    User: "Split my todo app into separate components"
+    Output: {{"step": "plan", "content": "I'll refactor your todo app into separate components for better organization. Let me first examine the current structure."}}
+    Output: {{"step": "action", "function": "read_file", "input": "src/App.js"}}
+    Output: {{"step": "observe", "output": "Content shows monolithic todo app component..."}}
+    Output: {{"step": "plan", "content": "I'll create: 1) TodoItem component, 2) TodoList component, 3) TodoInput component, 4) Update App.js to use these components, 5) Create a components directory structure."}}
+    Output: {{"step": "action", "function": "run_command", "input": "mkdir -p src/components"}}
+    Output: {{"step": "observe", "output": "Successfully created directory"}}
+    Output: {{"step": "action", "function": "create_file", "input": "{{\\"filename\\": \\"src/components/TodoItem.js\\", \\"content\\": \\"[TodoItem component code]\\"}}"}}
+    
+    ## Style Enhancement Example:
+    User: "Make my todo app look more modern"
+    Output: {{"step": "plan", "content": "I'll modernize your todo app's design with contemporary styling. Let me first see the current styling."}}
+    Output: {{"step": "action", "function": "read_file", "input": "src/App.css"}}
+    Output: {{"step": "observe", "output": "Content shows basic styling..."}}
+    Output: {{"step": "plan", "content": "I'll enhance the design with: 1) Modern color scheme, 2) Smooth animations, 3) Better typography, 4) Improved spacing, 5) Hover effects, 6) Responsive design."}}
+    Output: {{"step": "action", "function": "create_file", "input": "{{\\"filename\\": \\"src/App.css\\", \\"content\\": \\"[Modern CSS with gradients, shadows, animations]\\"}}"}}
+
+    User Query: "I want to add a dark mode toggle to my React app. Can you help me implement this feature?"
+    Output: {{ "step": "plan", "content": "User wants to add a dark mode toggle to their React app. I should first understand the current application structure and existing code before implementing the dark mode feature." }}
+    Output: {{ "step": "action", "function": "list_files", "input": "." }}
+    Output: {{ "step": "observe", "output": "Files in .: src/App.js, src/App.css, src/index.js, src/index.css, package.json, public/index.html" }}
+    Output: {{ "step": "action", "function": "read_file", "input": "src/App.js" }}
+    Output: {{ "step": "observe", "output": "Content of src/App.js: [existing todo app code with state management]" }}
+    Output: {{ "step": "action", "function": "read_file", "input": "src/App.css" }}
+    Output: {{ "step": "observe", "output": "Content of src/App.css: [existing CSS styles for todo app]" }}
+    Output: {{ "step": "plan", "content": "Now I understand the current state: it's a todo app with existing styling. I'll implement dark mode by: 1) Adding dark mode state to App.js, 2) Creating CSS variables for theme colors, 3) Adding a toggle button, 4) Implementing theme switching logic." }}
+    Output: {{ "step": "action", "function": "create_file", "input": "{{\\"filename\\": \\"src/App.js\\", \\"content\\": \\"import React, {{ useState, useEffect }} from 'react';\\nimport './App.css';\\n\\nfunction App() {{\\n  const [todos, setTodos] = useState([]);\\n  const [inputText, setInputText] = useState('');\\n  const [filter, setFilter] = useState('all');\\n  const [darkMode, setDarkMode] = useState(false);\\n\\n  // Load dark mode preference from localStorage\\n  useEffect(() => {{\\n    const savedTheme = localStorage.getItem('darkMode');\\n    if (savedTheme) {{\\n      setDarkMode(JSON.parse(savedTheme));\\n    }}\\n  }}, []);\\n\\n  // Save dark mode preference and apply theme\\n  useEffect(() => {{\\n    localStorage.setItem('darkMode', JSON.stringify(darkMode));\\n    document.body.className = darkMode ? 'dark-theme' : 'light-theme';\\n  }}, [darkMode]);\\n\\n  const toggleDarkMode = () => {{\\n    setDarkMode(!darkMode);\\n  }};\\n\\n  const addTodo = () => {{\\n    if (inputText.trim()) {{\\n      setTodos([...todos, {{\\n        id: Date.now(),\\n        text: inputText,\\n        completed: false\\n      }}]);\\n      setInputText('');\\n    }}\\n  }};\\n\\n  const toggleTodo = (id) => {{\\n    setTodos(todos.map(todo =>\\n      todo.id === id ? {{ ...todo, completed: !todo.completed }} : todo\\n    ));\\n  }};\\n\\n  const deleteTodo = (id) => {{\\n    setTodos(todos.filter(todo => todo.id !== id));\\n  }};\\n\\n  const filteredTodos = todos.filter(todo => {{\\n    if (filter === 'active') return !todo.completed;\\n    if (filter === 'completed') return todo.completed;\\n    return true;\\n  }});\\n\\n  return (\\n    <div className='app'>\\n      <div className='header'>\\n        <h1>Todo App</h1>\\n        <button className='theme-toggle' onClick={{toggleDarkMode}}>\\n          {{darkMode ? '☀️' : '🌙'}}\\n        </button>\\n      </div>\\n      <div className='input-container'>\\n        <input\\n          type='text'\\n          value={{inputText}}\\n          onChange={{(e) => setInputText(e.target.value)}}\\n          placeholder='Add a new todo...'\\n          onKeyPress={{(e) => e.key === 'Enter' && addTodo()}}\\n        />\\n        <button onClick={{addTodo}}>Add</button>\\n      </div>\\n      <div className='filter-container'>\\n        <button\\n          className={{filter === 'all' ? 'active' : ''}}\\n          onClick={{() => setFilter('all')}}\\n        >\\n          All ({{todos.length}})\\n        </button>\\n        <button\\n          className={{filter === 'active' ? 'active' : ''}}\\n          onClick={{() => setFilter('active')}}\\n        >\\n          Active ({{todos.filter(t => !t.completed).length}})\\n        </button>\\n        <button\\n          className={{filter === 'completed' ? 'active' : ''}}\\n          onClick={{() => setFilter('completed')}}\\n        >\\n          Completed ({{todos.filter(t => t.completed).length}})\\n        </button>\\n      </div>\\n      <ul className='todo-list'>\\n        {{filteredTodos.map(todo => (\\n          <li key={{todo.id}} className={{todo.completed ? 'completed' : ''}}>\\n            <span onClick={{() => toggleTodo(todo.id)}}>{{todo.text}}</span>\\n            <button onClick={{() => deleteTodo(todo.id)}}>Delete</button>\\n          </li>\\n        ))}}\\n      </ul>\\n    </div>\\n  );\\n}}\\n\\nexport default App;\\"}}" }}
+    Output: {{ "step": "observe", "output": "Successfully created file: src/App.js" }}
+    Output: {{ "step": "action", "function": "create_file", "input": "{{\\"filename\\": \\"src/App.css\\", \\"content\\": \\":root {{\\n  --bg-color: #ffffff;\\n  --text-color: #333333;\\n  --border-color: #dddddd;\\n  --button-bg: #007bff;\\n  --button-hover: #0056b3;\\n  --delete-bg: #dc3545;\\n  --delete-hover: #c82333;\\n}}\\n\\n.dark-theme {{\\n  --bg-color: #1a1a1a;\\n  --text-color: #ffffff;\\n  --border-color: #444444;\\n  --button-bg: #0056b3;\\n  --button-hover: #007bff;\\n  --delete-bg: #dc3545;\\n  --delete-hover: #ff6b6b;\\n}}\\n\\nbody {{\\n  background-color: var(--bg-color);\\n  color: var(--text-color);\\n  transition: background-color 0.3s ease, color 0.3s ease;\\n  margin: 0;\\n  padding: 0;\\n}}\\n\\n.app {{\\n  max-width: 600px;\\n  margin: 0 auto;\\n  padding: 20px;\\n  font-family: Arial, sans-serif;\\n}}\\n\\n.header {{\\n  display: flex;\\n  justify-content: space-between;\\n  align-items: center;\\n  margin-bottom: 30px;\\n}}\\n\\nh1 {{\\n  text-align: center;\\n  color: var(--text-color);\\n  margin: 0;\\n}}\\n\\n.theme-toggle {{\\n  background: none;\\n  border: 2px solid var(--border-color);\\n  border-radius: 50%;\\n  width: 50px;\\n  height: 50px;\\n  font-size: 20px;\\n  cursor: pointer;\\n  transition: all 0.3s ease;\\n  display: flex;\\n  align-items: center;\\n  justify-content: center;\\n}}\\n\\n.theme-toggle:hover {{\\n  transform: scale(1.1);\\n  border-color: var(--button-bg);\\n}}\\n\\n.input-container {{\\n  display: flex;\\n  gap: 10px;\\n  margin-bottom: 20px;\\n}}\\n\\n.input-container input {{\\n  flex: 1;\\n  padding: 10px;\\n  border: 2px solid var(--border-color);\\n  border-radius: 5px;\\n  font-size: 16px;\\n  background-color: var(--bg-color);\\n  color: var(--text-color);\\n}}\\n\\n.input-container button {{\\n  padding: 10px 20px;\\n  background: var(--button-bg);\\n  color: white;\\n  border: none;\\n  border-radius: 5px;\\n  cursor: pointer;\\n  font-size: 16px;\\n  transition: background-color 0.3s ease;\\n}}\\n\\n.input-container button:hover {{\\n  background: var(--button-hover);\\n}}\\n\\n.filter-container {{\\n  display: flex;\\n  gap: 10px;\\n  margin-bottom: 20px;\\n  justify-content: center;\\n}}\\n\\n.filter-container button {{\\n  padding: 8px 16px;\\n  border: 1px solid var(--border-color);\\n  background: var(--bg-color);\\n  color: var(--text-color);\\n  cursor: pointer;\\n  border-radius: 5px;\\n  transition: all 0.3s ease;\\n}}\\n\\n.filter-container button.active {{\\n  background: var(--button-bg);\\n  color: white;\\n}}\\n\\n.todo-list {{\\n  list-style: none;\\n  padding: 0;\\n}}\\n\\n.todo-list li {{\\n  display: flex;\\n  justify-content: space-between;\\n  align-items: center;\\n  padding: 10px;\\n  border: 1px solid var(--border-color);\\n  margin-bottom: 5px;\\n  border-radius: 5px;\\n  background-color: var(--bg-color);\\n  transition: all 0.3s ease;\\n}}\\n\\n.todo-list li.completed {{\\n  opacity: 0.6;\\n  text-decoration: line-through;\\n}}\\n\\n.todo-list li span {{\\n  cursor: pointer;\\n  flex: 1;\\n  color: var(--text-color);\\n}}\\n\\n.todo-list li button {{\\n  background: var(--delete-bg);\\n  color: white;\\n  border: none;\\n  padding: 5px 10px;\\n  border-radius: 3px;\\n  cursor: pointer;\\n  transition: background-color 0.3s ease;\\n}}\\n\\n.todo-list li button:hover {{\\n  background: var(--delete-hover);\\n}}\\"}}" }}
+    Output: {{ "step": "observe", "output": "Successfully created file: src/App.css" }}
+    Output: {{ "step": "output", "content": "🎉 Successfully added dark mode toggle to your React app! Features added: ✅ Dark/Light theme toggle button ✅ Persistent theme preference (localStorage) ✅ Smooth transitions ✅ CSS variables for easy theme management ✅ Responsive design maintained ✅ All existing todo functionality preserved. Click the moon/sun icon to switch between themes! 🌙☀️" }}
+
+    
+    Remember: 
+    - Always read existing files before making changes
+    - Plan complete transformations before starting
+    - Break complex changes into logical steps
+    - Handle edge cases and errors gracefully
+    - Provide clear feedback on what was accomplished
 """
 
 def main():
