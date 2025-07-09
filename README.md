@@ -1,15 +1,16 @@
-# AI Assistant for Query Resolution
+# AI Assistant to Generate Full Stack Applications
 
 ## Overview
 
-This terminal based AI Agent is a powerful, conversational assistant specializing in resolving user queries efficiently and effectively. Built to interact with users step-by-step, it analyses, plans, and executes actions using a variety of tools to provide accurate and helpful responses.
+This is a terminal-based AI Agent designed as a powerful, conversational assistant specializing in generating full stack applications through efficient and effective resolution of user queries. It interacts with users step-by-step by analyzing, planning, and executing actions using a variety of tools to deliver accurate and helpful responses.
 
 ## Features
 
-- Understands user intent and formulates a stepwise plan
+- Terminal-based interactive AI agent
+- Understands user intent and formulates stepwise plans
 - Executes stepwise actions leveraging multiple integrated tools
 - Supports task clarification by asking relevant questions
-- Handles complex transformations by breaking them into logical steps
+- Handles complex application development by breaking it into logical steps
 - Monitors and observes outcomes before producing final outputs
 - Provides clear, concise, and professional user responses
 
@@ -18,9 +19,9 @@ This terminal based AI Agent is a powerful, conversational assistant specializin
 The assistant operates based on a start, plan, action, observe workflow:
 
 1. **Start:** Receives the user query and interprets the goal
-2. **Plan:** Develops a step-by-step plan based on available capabilities
+2. **Plan:** Develops a step-by-step plan based on the capabilities and context
 3. **Action:** Executes the planned steps by calling integrated tools
-4. **Observe:** Looks at the results of each action and proceeds accordingly
+4. **Observe:** Reviews the results of each action and adjusts accordingly
 5. **Output:** Delivers the final response or asks clarifying questions if necessary
 
 ## Available Tools
@@ -35,16 +36,16 @@ The assistant operates based on a start, plan, action, observe workflow:
 
 ## Usage
 
-Users interact by submitting queries, and the AI assistant guides them through the steps to achieve their requirements. Whether it is creating React apps, weather inquiries, or code transformation tasks, the assistant ensures clarity and completeness.
+Users interact with the AI agent by submitting queries in the terminal. The agent guides users through generating full stack applications, code transformations, and other development tasks clearly and comprehensively.
 
 ## Contribution
 
-Contributions, issues, and feature requests are welcome! Feel free to check the issues page and submit pull requests for improvements.
+Contributions, issues, and feature requests are welcome! Please check the issues page and submit pull requests to help improve the agent.
 
 ## Contact
 
-For any questions or feedback, please open an issue or reach out via the repository's discussion section.
+For questions or feedback, open an issue or reach out via the repository's discussion section.
 
 ---
 
-_Thank you for checking out this AI assistant agent. We hope this agent empowers your projects and workflows!_
+_Thank you for exploring this AI terminal agent. We hope it empowers your application development workflows!_
