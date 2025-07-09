@@ -504,7 +504,7 @@ def main():
 
             while True:
                 response = client.chat.completions.create(
-                    model= "gpt-4.1",
+                    model= "gpt-4.1-mini",
                     response_format= {"type": "json_object"},
                     messages = messages
                 )
